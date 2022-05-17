@@ -4,6 +4,7 @@
  * Implements basic telnet server functions with extensible help menu and function processing
  *
  * To Do.-
+ * Add id/pw
  *
  * V2.0 - 5th May 2022  Rewrite to use classes, PROGMEM variables and multiclient support
  * V2.1 - 14th May 2022 Initial release version
