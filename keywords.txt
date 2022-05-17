@@ -1,0 +1,30 @@
+##############################################
+# Syntax Coloring Map For SimpleTelnet library
+##############################################
+
+#######################################
+# Datatypes (KEYWORD1)
+#######################################
+
+SimpleTelnet      KEYWORD1
+telnetServer      KEYWORD1
+telnetClients     KEYWORD1
+
+#######################################
+# Methods and Functions (KEYWORD2)
+#######################################
+
+begin          KEYWORD2
+action         KEYWORD2
+insertNode     KEYWORD2
+printList      KEYWORD2
+setTimeout     KEYWORD2
+getTimeout     KEYWORD2
+
+#######################################
+# Constants (LITERAL1)
+#######################################
+TELNETPORT    LITERAL1
+MAXCLIENTS    LITERAL1
+IDLETIMEOUT   LITERAL1
+RXBUFFLEN     LITERAL1
