@@ -54,6 +54,9 @@ The client supports all the standard client stream methods. MAXCLIENTS is define
 The menu the client sees when logging in can be extended to add your own commands.  Commands are added using the insertNode() method.  See the function reference below for usage details.  Each command you add will need an associated call back function that will process the command according to your applications requirements.<br>
 Your callback function will receive two parameters to help you service the request.  The first will be the client id number, this will index into the telnetClients[] array so you can send any reply as required.  The second parameter received will be a pointer to the command buffer that was entered by the user.  This may be required if you are expecting the user to provide additional information to support the command.  Note that the buffer contents are only valid until your function completes so if you need to persist any of the information there then you will need to store it somewhere else.
 
+### Security
+The telnet protocol is inherently unsecure because it sends the userid and password in clear text over the network.  The library provides a simple userid/password security mechanism that can be invoked by setting a user id and/or a user password.  If either are set then the user will be prompted appropriately at login and will be unable to enter commands until these have been correctly matched.  Note that non solicited output will still be received by the client pending a sucessful login.
+
 ### Function Reference
 #### void telnetServer.begin(void), void telnetServer.begin(int port)
 This function needs to be called within your setup() function after you have initialised and connected to the network.  If port is not specified then it will default to port 23 which is the well known port used for telnet.
@@ -112,4 +115,23 @@ This function returns the timeout remaining until a client will be disconnected<
 ```
 uint16_t timeRemaining = getTimeout(0); // Get client 0 timeout remaining
 ```
-
+#### void setUserId(const char *id)
+This function sets the user id. The function is PROGMEM aware.<br>
+##### Parameters
+  _const char *id_ - This is the user is that needs to be entered at login.
+##### Returns
+  Nothing.
+##### Example
+```
+telnetServer.setUserId(PSTR("myUsrID"));
+```
+#### void setUserPw(const char *id)
+This function sets the user password.  Note the pw will be echoed to the console by the server. The function is PROGMEM aware.<br>
+##### Parameters
+  _const char *id_ - This is the user is that needs to be entered at login.
+##### Returns
+  Nothing.
+##### Example
+```
+telnetServer.setUserPw(PSTR("myUsrPW"));
+```

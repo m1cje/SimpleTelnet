@@ -4,7 +4,7 @@
  * Implements basic telnet server functions with extensible help menu and function processing
  *
  * To Do.-
- * Add id/pw
+ * Add login id/pw
  *
  * V2.0 - 5th May 2022  Rewrite to use classes, PROGMEM variables and multiclient support
  * V2.1 - 14th May 2022 Initial release version
@@ -79,8 +79,11 @@ public:
 //////////////////////////////////////////////////////
 SimpleTelnet::SimpleTelnet(void)
 {
+    _loginid = NULL;
+    _loginpw = NULL;
 }
 
+// overload default port
 void SimpleTelnet::begin(void)
 {
     begin(TELNETPORT);
@@ -129,9 +132,13 @@ void SimpleTelnet::action(void) // Service routine, called by loop()
         {
             WiFiClient abortConnection = _telnetServer.available(); // Store the client object
             IPAddress ip = abortConnection.remoteIP();
+            uint16_t nextAvailableSlot = 65535;
+            for (auto i = 0; i < MAXCLIENTS; i++)
+                if (telnetServer.getTimeout(i) < nextAvailableSlot)
+                    nextAvailableSlot = telnetServer.getTimeout(i);
             Serial.printf_P(PSTR("Telnet connection request from %d.%d.%d.%d:%d rejected\r\n"), ip[0], ip[1], ip[2], ip[3], abortConnection.remotePort());
             abortConnection.setNoDelay(true); // Turns off nagle
-            abortConnection.printf_P(PSTR("\r\nWelcome to %s %s, sorry no connections are available at the moment, please try again later...\r\n"), __PROJECT, __VERSION_SHORT);
+            abortConnection.printf_P(PSTR("\r\nWelcome to %s %s, sorry no connections are available at the moment, please try again in %d minutes...\r\n"), __PROJECT, __VERSION_SHORT, nextAvailableSlot);
             abortConnection.flush();
             abortConnection.stop();
         }
@@ -181,6 +188,9 @@ void SimpleTelnet::_resetParser(byte clientID)
     _timeoutWarning[clientID] = false;
     _uparrowState[clientID] = 0;
     _connectionTimeout[clientID] = IDLETIMEOUT;
+    _authenticated[clientID] = false;
+    _idOK[clientID] = false;
+    _pwOK[clientID] = false;
 }
 
 //////////////////////////////////////////////////////
@@ -252,20 +262,88 @@ void SimpleTelnet::_parseChar(char rxval, byte clientID)
 
     if (eol[clientID])
     {
-        strcpy(_lastbuff[clientID], _rxbuff[clientID]);         // save previous command
-        telnetClients[clientID].print(F("\r"));                 // crlf ready for the next output
-        if (rxptr[clientID])                                    // if we have a command to check
-        {                                                       //
-            if (!_ProcessList(_rxbuff[clientID], clientID))     // Run the command entered past the handler functions
-                telnetClients[clientID].print(F(">What?\r\n")); // print new prompt
-            else
-                telnetClients[clientID].print(F("\r\n")); // crlf ready for the next output
+        if (_checkid(clientID, _rxbuff[clientID]))
+        {
+            strcpy(_lastbuff[clientID], _rxbuff[clientID]);         // save previous command
+            telnetClients[clientID].print(F("\r"));                 // crlf ready for the next output
+            if (rxptr[clientID] && _rxbuff[clientID][0])            // if we have a command to check
+            {                                                       //
+                if (!_ProcessList(_rxbuff[clientID], clientID))     // Run the command entered past the handler functions
+                    telnetClients[clientID].print(F(">What?\r\n")); // print new prompt
+                else
+                    telnetClients[clientID].print(F("\r\n")); // crlf ready for the next output
+            }
+            telnetClients[clientID].print(F("\r>")); // crlf ready for the next output
         }
-        telnetClients[clientID].print(F("\r>")); // crlf ready for the next output
-        eol[clientID] = false;                   // reset eol flag
-        rxptr[clientID] = 0;                     // Reset ptr to start new line
-        _rxbuff[clientID][0] = '\0';             // reset buffer
+        eol[clientID] = false;       // reset eol flag
+        rxptr[clientID] = 0;         // Reset ptr to start new line
+        _rxbuff[clientID][0] = '\0'; // reset buffer
     }
+}
+
+//////////////////////////////////////////////////////
+// Check client id and pw, return true if ok
+//////////////////////////////////////////////////////
+bool SimpleTelnet::_checkid(byte clientID, char *rxbuff)
+{
+    // check id
+    if (!_idOK[clientID]) // id not checked
+    {
+        if (!_loginid) // user id string is null (blank)
+            _idOK[clientID] = true;
+        else // Check login id against rxbuff
+        {
+            if (!strncmp_P(rxbuff, _loginid, strlen_P(_loginid)))
+            {
+                _idOK[clientID] = true; // buff matched login id
+                rxbuff[0] = 0x00;
+            }
+            else
+            {
+                telnetClients[clientID].printf_P(PSTR("login: "));
+                _idOK[clientID] = false;
+                return false;
+            }
+        }
+    }
+
+    // check pw
+    if (!_pwOK[clientID])
+    {
+        if (!_loginpw) // pw is not set
+            _pwOK[clientID] = true;
+        else // Check login id
+        {
+            if (!strncmp_P(rxbuff, _loginpw, strlen_P(_loginpw)))
+            {
+                _pwOK[clientID] = true; // buff matched pw
+                rxbuff[0] = 0x00;
+            }
+            else
+            {
+                telnetClients[clientID].printf_P(PSTR("password: "));
+                _pwOK[clientID] = false;
+                return false;
+            }
+        }
+    }
+
+    return (_idOK[clientID] && _pwOK[clientID]);
+}
+
+//////////////////////////////////////////////////////
+// Set a user id
+//////////////////////////////////////////////////////
+void SimpleTelnet::setUserId(const char *id)
+{
+    _loginid = id;
+}
+//////////////////////////////////////////////////////
+// Set a user Pw
+//////////////////////////////////////////////////////
+void SimpleTelnet::setUserPw(const char *pw)
+{
+    _loginpw = pw;
 }
 
 //////////////////////////////////////////////////////
@@ -378,12 +456,12 @@ void SimpleTelnet::setTimeout(byte clientID, uint16_t tmins)
 //////////////////////////////////////////////////////
 uint16_t SimpleTelnet::getTimeout(byte clientID)
 {
-    //    return ((uint16_t)((_connectionTimeout[clientID] - _connectionTimer[clientID]) / 60000));
     if (_connectionTimeout[clientID])
     {
         time_t elapsed = millis() - _connectionTimer[clientID];
         time_t remaining = _connectionTimeout[clientID] - elapsed;
-        return (uint16_t)round(remaining / 60000);
+        Serial.printf("elapsed: %lld remaining %lld\r\n", elapsed, remaining);
+        return (uint16_t)round((double)(remaining / 60000.0));
     }
     else
         return 0;
@@ -526,7 +604,7 @@ void _listSessions(byte clientID, char *buff)
         {
             telnetClients[clientID].printf_P(PSTR("\tClient [%d] IP "), i + 1);
             telnetClients[i].remoteIP().printTo(telnetClients[clientID]);
-            telnetClients[clientID].printf_P(PSTR(":%d (T:%d)%c\r\n"), telnetClients[i].remotePort(), telnetServer.getTimeout(i) + 1, clientID == i ? '*' : ' ');
+            telnetClients[clientID].printf_P(PSTR(":%d (T:%02d)%c\r\n"), telnetClients[i].remotePort(), telnetServer.getTimeout(i), clientID == i ? '*' : ' ');
         }
     }
 }

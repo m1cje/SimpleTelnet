@@ -26,6 +26,8 @@ public:
     void printList(byte clientID);                                                                                 // Display the menu command list
     void setTimeout(byte clientID, uint16_t tmins);                                                                // Set the inactivity timeout to tmins minutes
     uint16_t getTimeout(byte clientID);                                                                            // Returns the inactivity timeout remaining in minutes
+    void setUserId(const char *id);                                                                                // Set a user id
+    void setUserPw(const char *pw);                                                                                // Set a user Pw
 
 private:
     Node *head;                            // pointer to first element of the linked list
@@ -36,15 +38,21 @@ private:
     time_t _connectionTimeout[MAXCLIENTS]; // Stores the millis() timeout time
     bool _timeoutWarning[MAXCLIENTS];      // Flag set to say we are about to timeout the session
     byte _uparrowState[MAXCLIENTS];        // state pointer for up arrow processing
-    void _resetParser(byte clientID);      // Clears the parser vars ready for a new client connection
-    time_t _uptime(void);                  // Returns the time_t elapsed since boot
-    time_t now(void);                      // Returns the current time'
+    const char *_loginid;                  // Points to a userid or null if none set/required
+    const char *_loginpw;                  // Points to a password or null if none set/required
+    time_t _timeNow;                       // Buffer to hold the current time as secondssince 1/1/1970
+    bool _authenticated[MAXCLIENTS];       // client is logged in sucessfully flag
+    bool _idOK[MAXCLIENTS];                // id is ok flag
+    bool _pwOK[MAXCLIENTS];                // pw is ok flag
 
+    time_t _uptime(void); // Returns the time_t elapsed since boot
+    time_t now(void);     // Returns the current time'
     void _addStdMenu(void);
     void _parseChar(char rxval, byte clientID);
     bool _ProcessList(char *command, byte cID); // Function to process the linked list. command parameter is the command to be processed
     Node *_findCommand(const char *command);    // Search the node list to see if a command alreay exists
-    time_t _timeNow;                            // Buffer to hold the current time as secondssince 1/1/1970
+    void _resetParser(byte clientID);           // Clears the parser vars ready for a new client connection
+    bool _checkid(byte clientID, char *rxbuff); // Check id/pw for client login
 
     friend void _telnetInfo(byte clientID, char *buff);
     friend void _showHelpMessage(byte clientID, char *buff);
