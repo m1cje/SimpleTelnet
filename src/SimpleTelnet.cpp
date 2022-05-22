@@ -134,7 +134,7 @@ void SimpleTelnet::action(void) // Service routine, called by loop()
             IPAddress ip = abortConnection.remoteIP();
             uint16_t nextAvailableSlot = 65535;
             for (auto i = 0; i < MAXCLIENTS; i++)
-                if (telnetServer.getTimeout(i) < nextAvailableSlot)
+                if (telnetServer.getTimeout(i) < nextAvailableSlot && telnetServer.getTimeout(i))
                     nextAvailableSlot = telnetServer.getTimeout(i);
             Serial.printf_P(PSTR("Telnet connection request from %d.%d.%d.%d:%d rejected\r\n"), ip[0], ip[1], ip[2], ip[3], abortConnection.remotePort());
             abortConnection.setNoDelay(true); // Turns off nagle
