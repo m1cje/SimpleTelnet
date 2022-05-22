@@ -57,6 +57,9 @@ void setup()
     // Set up telnet server
     telnetServer.begin();
     telnetServer.insertNode(PSTR("showtime"), PSTR("Toggle seconds display"), toggleSecs); // Add a menu command
+
+    // telnetServer.setUserId(PSTR("andrew"));
+    // telnetServer.setUserPw(PSTR("login"));
     Serial.printf_P(PSTR("Telnet server started:\r\n"));
 }
 
