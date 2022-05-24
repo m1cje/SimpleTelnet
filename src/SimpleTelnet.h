@@ -15,6 +15,8 @@
 #define __VERSION_SHORT "V2.2"
 #endif
 
+#define TELNETDEBUG
+
 extern WiFiClient telnetClients[];
 class Node; // This defines an element on the liked list
 

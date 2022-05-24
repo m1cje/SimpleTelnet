@@ -104,7 +104,9 @@ void SimpleTelnet::action(void) // Service routine, called by loop()
     if (_telnetServer.hasClient()) // true if someone is trying to connect
     {
         bool ConnectionRequest = true; // flag set to indicate we have a new connection that needs to be dealt with
+#ifdef TELNETDEBUG
         Serial.printf_P(PSTR("New connection detected\r\n"));
+#endif
         for (auto i = 0; i < MAXCLIENTS; i++)
         {
             if (!telnetClients[i].connected()) // Find a free connection
@@ -116,8 +118,10 @@ void SimpleTelnet::action(void) // Service routine, called by loop()
                 _parseChar(0x00, i);            // Force new prompt to output
                 _connectionTimer[i] = millis(); // Set timeout timer
                 _resetParser(i);                // Clear the parser vars for this new client
+#ifdef TELNETDEBUG
                 IPAddress ip = telnetClients[i].remoteIP();
                 Serial.printf_P(PSTR("Telnet client connected from %d.%d.%d.%d:%d on slot %d\r\n"), ip[0], ip[1], ip[2], ip[3], telnetClients[i].remotePort(), i);
+#endif
                 ConnectionRequest = false; // Clear request flag
                 break;
             }
@@ -130,7 +134,9 @@ void SimpleTelnet::action(void) // Service routine, called by loop()
             for (auto i = 0; i < MAXCLIENTS; i++)
                 if (telnetServer.getTimeout(i) < nextAvailableSlot && telnetServer.getTimeout(i))
                     nextAvailableSlot = telnetServer.getTimeout(i);
+#ifdef TELNETDEBUG
             Serial.printf_P(PSTR("Telnet connection request from %d.%d.%d.%d:%d rejected\r\n"), ip[0], ip[1], ip[2], ip[3], abortConnection.remotePort());
+#endif
             abortConnection.setNoDelay(true); // Turns off nagle
             abortConnection.printf_P(PSTR("\r\nWelcome to %s %s, sorry no connections are available at the moment, please try again in %d minutes...\r\n"), __PROJECT, __VERSION_SHORT, nextAvailableSlot);
             abortConnection.flush();
@@ -156,12 +162,16 @@ void SimpleTelnet::action(void) // Service routine, called by loop()
                     if ((millis() - _connectionTimer[i]) > (_connectionTimeout[i] - IDLEWARNING) && !_timeoutWarning[i]) // Check idle timeout
                     {
                         _timeoutWarning[i] = true; // Set flag to say we have issued the warning
+#ifdef TELNETDEBUG
                         Serial.printf_P(PSTR("Client %d Inactivity timeout in 300 seconds\r\n"), i);
+#endif
                         telnetClients[i].printf_P(PSTR("Inactivity timeout in 300 seconds\r\n"));
                     }
                     if (millis() - _connectionTimer[i] > _connectionTimeout[i]) // Check idle timeout
                     {
+#ifdef TELNETDEBUG
                         Serial.printf_P(PSTR("Client %d Inactivity timeout\r\n"), i);
+#endif
                         telnetClients[i].printf_P(PSTR("Inactivity timeout, bye\r\n"));
                         telnetClients[i].flush(); // Flush any tx data
                         telnetClients[i].stop();  // Session timeout, clear the connection
@@ -194,9 +204,9 @@ void SimpleTelnet::_parseChar(char rxval, byte clientID)
 {
     static byte rxptr[MAXCLIENTS] = {0}; // Pointer to next free space in tx buffer
     bool eol[MAXCLIENTS] = {false};      // end of line received indicator causing input to be processed
-
+#ifdef TELNETDEBUG
     Serial.printf("[%d]%c", clientID, rxval);
-
+#endif
     // Check for up-arrow (Esc 5b 41)
     if (rxval == 0x1B) // Esc
     {
