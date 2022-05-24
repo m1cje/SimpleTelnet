@@ -549,7 +549,7 @@ void _telnetInfo(byte clientID, char *buff)
     telnetClients[clientID].printf_P(PSTR("\tMax free block size %u\r\n"), ESP.getMaxFreeBlockSize());
     telnetClients[clientID].printf_P(PSTR("\tHeap fragmentation %u%%\r\n"), ESP.getHeapFragmentation());
     telnetClients[clientID].printf_P(PSTR("\tFree sketch space %u\r\n"), ESP.getFreeSketchSpace());
-    telnetClients[clientID].printf_P(PSTR("\tHostname %s\r\n"), WiFi.hostname());
+    telnetClients[clientID].printf_P(PSTR("\tHostname %s\r\n"), WiFi.hostname().c_str());
     telnetClients[clientID].print(F("\tIP Address "));
     WiFi.localIP().printTo(telnetClients[clientID]);
     telnetClients[clientID].print(F("\r\n\tIP Mask    "));
