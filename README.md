@@ -141,7 +141,7 @@ When a user logs into the server they are presented with a menu of built in comm
 #### help
 Displays the help menu and also the current time and client id.
 #### info
-Displays a number of useful system statistics. Note ifyou set ADC_MODE(ADC_VCC) it will also show vcc.
+Displays a number of useful system statistics. Note if you set ADC_MODE(ADC_VCC) it will also show vcc.
 #### wifi (hidden)
 Displays the wifi id and psk.
 #### sessions
