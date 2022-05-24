@@ -4,10 +4,10 @@
  * Implements basic telnet server functions with extensible help menu and function processing
  *
  * To Do.-
- * Add login id/pw
  *
  * V2.0 - 5th May 2022  Rewrite to use classes, PROGMEM variables and multiclient support
  * V2.1 - 14th May 2022 Initial release version
+ * V2.2 - 23rd May 2022 Final release version
  *
  * */
 
@@ -16,18 +16,12 @@
 #include <Time.h>
 #include <SimpleTelnet.h>
 
-// Enable VCC monitoring for info report
-#ifndef LOGVCC
-ADC_MODE(ADC_VCC);
-#define LOGVCC
-#endif
-
 //////////////////////////////////////////////////////
 // Global variables
 //////////////////////////////////////////////////////
-WiFiServer _telnetServer(TELNETPORT); // Telnet server, describes the server
-WiFiClient telnetClients[MAXCLIENTS]; // Telnet client, describes the connected clients
-SimpleTelnet telnetServer;            // the telnet server class
+WiFiServer _telnetServer(SIMPLETELNETPORT); // Telnet server, describes the server
+WiFiClient telnetClients[MAXCLIENTS];       // Telnet client, describes the connected clients
+SimpleTelnet telnetServer;                  // the telnet server class
 
 //////////////////////////////////////////////////////
 // Internal menu support functions
@@ -86,7 +80,7 @@ SimpleTelnet::SimpleTelnet(void)
 // overload default port
 void SimpleTelnet::begin(void)
 {
-    begin(TELNETPORT);
+    begin(SIMPLETELNETPORT);
 }
 
 void SimpleTelnet::begin(uint16_t port)
@@ -321,7 +315,7 @@ bool SimpleTelnet::_checkid(byte clientID, char *rxbuff)
             }
             else
             {
-                telnetClients[clientID].printf_P(PSTR("password: "));
+                telnetClients[clientID].printf_P(PSTR("Password: "));
                 _pwOK[clientID] = false;
                 return false;
             }
@@ -362,16 +356,17 @@ bool SimpleTelnet::_ProcessList(char *command, byte cID) // Search the list for 
             cresult = strcmp_P(command, flist->commandText); // s2 is in PROGMEM, rets 0 if matched
         if (!cresult)                                        // Check for command match
         {
-            flist->commandAction(cID, command); // Run command
-            return true;                        // indicate that we matched the command
+            if (flist->commandAction)               // Check we have a function attached
+                flist->commandAction(cID, command); // Run command
+            return true;                            // indicate that we matched the command
         }
         flist = flist->next; // Iterate to next member
     }
     return false; // failed to match the command
 }
 
-// Compare two strings in flash, compatible with strcmp()
-int strcmp_PP(const char *a, const char *b)
+// Compare two strings in flash, compatible with strcmp(), needed because user can override commands in flash
+int SimpleTelnet::_strcmp_PP(const char *a, const char *b)
 {
     const char *aa = reinterpret_cast<const char *>(a);
     const char *bb = reinterpret_cast<const char *>(b);
@@ -389,13 +384,13 @@ int strcmp_PP(const char *a, const char *b)
     }
 }
 
-// Search the node list to see if a command alreay exists
+// Search the node list to see if a command already exists
 Node *SimpleTelnet::_findCommand(const char *commandtext)
 {
     Node *flist = head;
     while (flist != NULL) // Traverse the list.
     {
-        if (!strcmp_PP(commandtext, flist->commandText)) // s2 is in PROGMEM, rets 0 if matched
+        if (!_strcmp_PP(commandtext, flist->commandText)) // s2 is in PROGMEM, rets 0 if matched
             break;
         flist = flist->next; // Iterate to next member
     }
@@ -460,7 +455,6 @@ uint16_t SimpleTelnet::getTimeout(byte clientID)
     {
         time_t elapsed = millis() - _connectionTimer[clientID];
         time_t remaining = _connectionTimeout[clientID] - elapsed;
-        Serial.printf("elapsed: %lld remaining %lld\r\n", elapsed, remaining);
         return (uint16_t)round((double)(remaining / 60000.0));
     }
     else
@@ -480,6 +474,16 @@ time_t SimpleTelnet::now(void)
     _timeNow = time(nullptr);
     return _timeNow;
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+// Menu support functions
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// Menu support functions are passed the client id and a pointer to the command buffer and return void
+//
+// All functions must be declared as void name(byte clientID, char *buff)
+//
+//////////////////////////////////////////////////////////////////////////////////////////////////////
 
 //////////////////////////////////////////////////////
 // Prints an elapsed time in seconds to buff.  Note buff should be at least 80 chars long
@@ -508,16 +512,9 @@ char *_printElapsedTime(char *buff, time_t elapsedTime)
     return buff;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////
-// Menu support functions
-//////////////////////////////////////////////////////////////////////////////////////////////////////
-//
-// Menu support functions are passed the client id and a pointer to the command buffer and return void
-//
-// All functions must be declared as void name(byte clientID, char *buff)
-//
-//////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////
 // Remove the trailing newline from the time string
+//////////////////////////////////////////////////////
 char *_cleanAsctime(char *timeStr)
 {
     timeStr[strlen(timeStr) - 1] = 0;
@@ -567,9 +564,9 @@ void _telnetInfo(byte clientID, char *buff)
     telnetClients[clientID].printf_P(PSTR("\tMAC address %s\r\n"), WiFi.macAddress().c_str());
     telnetClients[clientID].printf_P(PSTR("\tSSID %s\r\n"), WiFi.SSID().c_str());
     telnetClients[clientID].printf_P(PSTR("\tRSSI %ddBm\r\n"), WiFi.RSSI());
-#ifdef LOGVCC
-    telnetClients[clientID].printf_P(PSTR("\tVCC %.3f Volts\r\n"), (float)ESP.getVcc() / 1000);
-#endif
+    uint16_t vcc = ESP.getVcc();
+    if (vcc != 65535) // ADC_MODE(ADC_VCC) not set
+        telnetClients[clientID].printf_P(PSTR("\tVCC %.3f Volts\r\n"), (float)vcc / 1000.0);
 }
 
 //////////////////////////////////////////////////////
@@ -698,7 +695,7 @@ void SimpleTelnet::_addStdMenu(void)
 {
     insertNode(PSTR("help"), PSTR("Display this help1 message"), _showHelpMessage);
     insertNode(PSTR("info"), PSTR("System Information"), _telnetInfo);
-    insertNode(PSTR("wifi"), PSTR("WiFi Information"), _telnetWiFiinfo);
+    insertNode(PSTR("wifi"), "", _telnetWiFiinfo);
     insertNode(PSTR("set"), PSTR("Set parameter"), _setParm, 3);
     insertNode(PSTR("sessions"), PSTR("List connected sessions"), _listSessions);
     insertNode(PSTR("kill"), PSTR("Kill a session connection"), _killSession, 4);

@@ -1,6 +1,10 @@
 #pragma once
 
-#define TELNETPORT 23         // Default port
+#ifndef SIMPLETELNET
+#define SIMPLETELNET
+#endif
+
+#define SIMPLETELNETPORT 23   // Default port
 #define MAXCLIENTS 2          // Number of concurrent clients supported
 #define IDLETIMEOUT 3600000LL // Default timeout for inactive clients in milliseconds
 #define IDLEWARNING 300000LL  // Default timeout for inactive clients in milliseconds
@@ -8,7 +12,7 @@
 
 #ifndef __PROJECT
 #define __PROJECT "SimpleTelnet"
-#define __VERSION_SHORT "V2.1"
+#define __VERSION_SHORT "V2.2"
 #endif
 
 extern WiFiClient telnetClients[];
@@ -49,10 +53,11 @@ private:
     time_t now(void);     // Returns the current time'
     void _addStdMenu(void);
     void _parseChar(char rxval, byte clientID);
-    bool _ProcessList(char *command, byte cID); // Function to process the linked list. command parameter is the command to be processed
-    Node *_findCommand(const char *command);    // Search the node list to see if a command alreay exists
-    void _resetParser(byte clientID);           // Clears the parser vars ready for a new client connection
-    bool _checkid(byte clientID, char *rxbuff); // Check id/pw for client login
+    bool _ProcessList(char *command, byte cID);   // Function to process the linked list. command parameter is the command to be processed
+    Node *_findCommand(const char *command);      // Search the node list to see if a command alreay exists
+    void _resetParser(byte clientID);             // Clears the parser vars ready for a new client connection
+    bool _checkid(byte clientID, char *rxbuff);   // Check id/pw for client login
+    int _strcmp_PP(const char *a, const char *b); // PROGMEM compare two strings in flash
 
     friend void _telnetInfo(byte clientID, char *buff);
     friend void _showHelpMessage(byte clientID, char *buff);

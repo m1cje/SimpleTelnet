@@ -2,19 +2,19 @@
 
 ## A Library for implementing a simple telnet interface suitable for logging program output
 
-This is a library providing simple to use telnet support suitable for logging output to a remote client.
+This is a library providing simple to use telnet support suitable for logging output to a remote client or simple data colection from embedded devices.
 
 * Small footprint
 * Simple to implement
 * No library dependancies
 * Supports multiple clients
-* Extensible user menu
+* Extendable user menu
 
 See example.cpp for typical usage
 
 ### About clients and servers
 There are two parts to the SimpleTelnet library.  There is a server object called telnetServer.  This object is reponsible for listening out for new clients and for receiving client data and then buffering the data and passing it back to your program for processing.<br>
-When a client connects to the server a new client object is created.  There can be multiple client connected simultaneously so these are all held in an array called telnetClients[].  There will be one entry for each remote client that connects to he server.  The maximum number of clients allowed is set by MAXCLIENTS which is defined in the header file.
+When a client connects to the server a new client object is created.  There can be multiple client connected simultaneously so these are all held in an array called telnetClients[].  There will be one entry for each remote client that connects to he server.  The maximum number of clients allowed is set by MAXCLIENTS which is defined in the header file.  Note that the server does not support client session negotiations so there is no control available for local echo etc.
 
 ### Using the Library
 To use the library you will need to include the header file.
@@ -45,17 +45,18 @@ With just these three lines of code you should be able to connect to your IoT de
 ### Sending output to the telnet clients
 Telnet clients are supported through a client array called telnetClients[].  Typically when logging unsolicited output from your program you will want to send it to all connected clients.  To do this you will need to iterate through the telnetClients array sending your output to each client in turn.
 ```
-For (auto i=0;i<MAXCLIENTS;i++)
+for (auto i=0;i<MAXCLIENTS;i++)
   telnetClients[i].print("Hello Client\r\n");
 ```
 The client supports all the standard client stream methods. MAXCLIENTS is defined in SimpleTelnet.h and defaults to two clients.  Each additional client will require about 100 additional bytes of heap memory and will incur processing time to check for received data, so don't increase this number unless you really need to.
 
 ### Extending the user menu
 The menu the client sees when logging in can be extended to add your own commands.  Commands are added using the insertNode() method.  See the function reference below for usage details.  Each command you add will need an associated call back function that will process the command according to your applications requirements.<br>
-Your callback function will receive two parameters to help you service the request.  The first will be the client id number, this will index into the telnetClients[] array so you can send any reply as required.  The second parameter received will be a pointer to the command buffer that was entered by the user.  This may be required if you are expecting the user to provide additional information to support the command.  Note that the buffer contents are only valid until your function completes so if you need to persist any of the information there then you will need to store it somewhere else.
+You can override the built in menu commands by adding your own version. If you redefine any of the default commands with a null help text and a null function pointer this will remove the command from the menu.<br>Your callback function will receive two parameters to help you service the request.  The first will be the client id number, this will index into the telnetClients[] array so you can send any reply as required.  The second parameter received will be a pointer to the command buffer that was entered by the user.  This may be required if you are expecting the user to provide additional information to support the command.  Note that the buffer contents are only valid until your function completes so if you need to persist any of the information there then you will need to store it somewhere else.<br>
+
 
 ### Security
-The telnet protocol is inherently unsecure because it sends the userid and password in clear text over the network.  The library provides a simple userid/password security mechanism that can be invoked by setting a user id and/or a user password.  If either are set then the user will be prompted appropriately at login and will be unable to enter commands until these have been correctly matched.  Note that non solicited output will still be received by the client pending a sucessful login.
+The telnet protocol is inherently unsecure because it sends the userid and password in clear text over the network and also all session data is unencrypted.  This library is only designed for use with simple iot type data and debugging output, if you are trying to use it to send high volumes or valuable data then you are using the wrong library.<br> The library does provid a simple userid/password security mechanism that can be invoked by setting a user id and/or a user password.  If either are set then the user will be prompted appropriately at login and will be unable to enter commands until these have been correctly matched.  Note that non solicited output will still be received by the client pending a sucessful login.
 
 ### Function Reference
 #### void telnetServer.begin(void), void telnetServer.begin(int port)
@@ -81,7 +82,7 @@ This function will add a new command to the client menu.  If the command already
   Nothing.<br>
 ##### Example
 ```
-insertNode(PSTR("set"), PSTR("Set parameter"), _setParm, 3);  // Add set command to menu
+telnetServer.insertNode(PSTR("set"), PSTR("Set parameter"), _setParm, 3);  // Add set command to menu
 ```
 #### void printList(byte clientID)
 This function will send the user menu to the remote client specified.  This is the command called by default when the user enters the _help_ command<br>
@@ -91,7 +92,7 @@ This function will send the user menu to the remote client specified.  This is t
   Nothing.
 ##### Example
 ```
-printList(0); // Display menu for client 0
+telnetServer.printList(0); // Display menu for client 0
 ```
 #### void setTimeout(byte clientID, uint16_t tmins)
 This function will set the inactivity timeout for a client.  Setting a timeout of 0 will disable the timeout leaving the client connected until manually cleared. Note timeouts are per client and are reset on client disconnection<br>
@@ -102,7 +103,7 @@ This function will set the inactivity timeout for a client.  Setting a timeout o
   Nothing.
 ##### Example
 ```
-setTimeout(0,0); // Set client 0 to never timeout
+telnetServer.setTimeout(0,0); // Set client 0 to never timeout
 ```
 #### uint16_t getTimeout(byte clientID)
 This function returns the timeout remaining until a client will be disconnected<br>
@@ -113,7 +114,7 @@ This function returns the timeout remaining until a client will be disconnected<
   _uint16_t mins_ - This is the timeout period remaining in minutes, 0 = no timeout.
 ##### Example
 ```
-uint16_t timeRemaining = getTimeout(0); // Get client 0 timeout remaining
+uint16_t timeRemaining = telnetServer.getTimeout(0); // Get client 0 timeout remaining
 ```
 #### void setUserId(const char *id)
 This function sets the user id. The function is PROGMEM aware.<br>
@@ -135,3 +136,21 @@ This function sets the user password.  Note the pw will be echoed to the console
 ```
 telnetServer.setUserPw(PSTR("myUsrPW"));
 ```
+### Built in menu commands
+When a user logs into the server they are presented with a menu of built in commands as follows.-
+#### help
+Displays the help menu and also the current time and client id.
+#### info
+Displays a number of useful system statistics. Note ifyou set ADC_MODE(ADC_VCC) it will also show vcc.
+#### wifi (hidden)
+Displays the wifi id and psk.
+#### sessions
+Lists the currently active sessions and how long before inactivity timeout.
+#### kill
+Kills a user session, use to remove a dead session that has no inactivity timeout set.
+#### quit
+Ends the current session.
+#### exit (hidden)
+Alias for quit command.
+#### reboot
+Soft reboots the system.
