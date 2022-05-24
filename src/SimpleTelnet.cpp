@@ -90,6 +90,7 @@ void SimpleTelnet::begin(uint16_t port)
     for (auto i = 0; i < MAXCLIENTS; i++) // Initialise parsing vars
         _resetParser(i);
     _addStdMenu();
+    _bootTime = time(nullptr); // Seconds since 1/1/1970
 }
 
 //////////////////////////////////////////////////////
@@ -97,9 +98,6 @@ void SimpleTelnet::begin(uint16_t port)
 //////////////////////////////////////////////////////
 void SimpleTelnet::action(void) // Service routine, called by loop()
 {
-    if (!_bootTime)                // Set the clock
-        _bootTime = time(nullptr); // Seconds since 1/1/1970
-
     // Check for new connection
     if (_telnetServer.hasClient()) // true if someone is trying to connect
     {
